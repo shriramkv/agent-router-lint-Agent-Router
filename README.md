@@ -1,6 +1,6 @@
 # agent-router-lint
 
-[![ci](https://github.com/shriramkv/agent-router-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/shriramkv/agent-router-lint/actions/workflows/ci.yml)
+[![ci](https://github.com/shriramkv/agent-router-lint-Agent-Router/actions/workflows/ci.yml/badge.svg)](https://github.com/shriramkv/agent-router-lint-Agent-Router/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![deps](https://img.shields.io/badge/dependencies-0-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-green)
