@@ -1,0 +1,132 @@
+# A setup that "works on my laptop" but carries the mistakes this linter
+# exists to catch. Every block below plants at least one finding.
+apiVersion: aigateway.envoyproxy.io/v1alpha1     # deprecated-api-version
+kind: AIGatewayRoute
+metadata:
+  name: chat
+  namespace: agents
+spec:
+  parentRefs:
+    - name: ai-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-4o-mini
+      backendRefs:
+        - name: openai                          # no fallback, no timeout
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: gpt-4o-mini                # route-duplicate-model
+      backendRefs:
+        - name: openai-typo                     # route-dangling-backend
+  llmRequestCosts:
+    - metadataKey: llm_weighted
+      type: CEL                                 # route-cost-cel-missing
+    - metadataKey: llm_tokens
+      type: Tokens                              # route-cost-type-invalid
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: openai
+  namespace: agents
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: openai
+    kind: Backend
+    group: gateway.envoyproxy.io
+  # no BackendSecurityPolicy targets this -> backend-unauthenticated-external
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: bedrock
+  namespace: agents
+spec:
+  schema:
+    name: Bedrock                               # backend-unknown-schema
+  backendRef:
+    name: bedrock
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: BackendSecurityPolicy
+metadata:
+  name: bedrock-creds
+  namespace: agents
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: bedrock
+  type: AWSCredentials                          # bsp-type-mismatch (apiKey set)
+  apiKey:
+    secretRef:
+      name: bedrock-key
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: openai
+  namespace: agents
+spec:
+  endpoints:
+    - fqdn:
+        hostname: api.openai.com
+        port: 80                                # backend-plaintext-external
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: bedrock
+  namespace: agents
+spec:
+  endpoints:
+    - fqdn:
+        hostname: bedrock-runtime.us-east-1.amazonaws.com
+        port: 443                               # backend-no-tls-validation
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bedrock-key
+  namespace: agents
+type: Opaque
+stringData:
+  apiKey: AKIAABCDEFGHIJKLMNOP                  # secret-hardcoded
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: MCPRoute
+metadata:
+  name: tools
+  namespace: agents
+spec:
+  parentRefs:
+    - name: ai-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  path: /mcp                                    # mcp-route-unauthenticated
+  backendRefs:
+    - name: github-mcp                          # no toolSelector, no credentials
+      kind: Backend
+      group: gateway.envoyproxy.io
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: github-mcp
+  namespace: agents
+spec:
+  endpoints:
+    - fqdn:
+        hostname: api.githubcopilot.com
+        port: 443
